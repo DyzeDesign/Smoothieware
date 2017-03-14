@@ -25,6 +25,7 @@ public:
     void on_gcode_received(void *argument);
 
 private:
+    //void on_pin_fall();
     void on_pin_rise();
     void check_encoder();
     void send_command(std::string msg, StreamOutput *stream);
@@ -36,6 +37,7 @@ private:
     float e_last_moved{0};
     std::atomic_uint pulses{0};
     float pulses_per_mm{0};
+    uint8_t detection_type{1};
     uint8_t seconds_per_check{1};
     uint8_t seconds_passed{0};
 

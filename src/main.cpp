@@ -186,6 +186,7 @@ void init() {
     #endif
     #ifndef NO_TOOLS_FILAMENTDETECTOR
     kernel->add_module( new(AHB0) FilamentDetector() );
+    kernel->streams->printf("detector loaded");
     #endif
     #ifndef NO_UTILS_MOTORDRIVERCONTROL
     kernel->add_module( new MotorDriverControl(0) );

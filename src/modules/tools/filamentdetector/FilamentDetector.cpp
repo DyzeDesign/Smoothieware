@@ -27,6 +27,7 @@
 
 #define filament_detector_checksum  CHECKSUM("filament_detector")
 #define enable_checksum             CHECKSUM("enable")
+#define detection_type_checksum     CHECKSUM("detection_type")
 #define encoder_pin_checksum        CHECKSUM("encoder_pin")
 #define bulge_pin_checksum          CHECKSUM("bulge_pin")
 #define seconds_per_check_checksum  CHECKSUM("seconds_per_check")
@@ -49,11 +50,12 @@ FilamentDetector::~FilamentDetector()
 void FilamentDetector::on_module_loaded()
 {
     // if the module is disabled -> do nothing
-    if(!THEKERNEL->config->value( filament_detector_checksum, enable_checksum )->by_default(false)->as_bool()) {
+    if(!THEKERNEL->config->value( filament_detector_checksum, enable_checksum )->by_default(true)->as_bool()) {
         // as this module is not needed free up the resource
         delete this;
         return;
     }
+    THEKERNEL->streams->printf("PATATE");
 
     // encoder pin has to be interrupt enabled pin like 0.26, 0.27, 0.28
     Pin dummy_pin;
@@ -67,15 +69,33 @@ void FilamentDetector::on_module_loaded()
         THEKERNEL->slow_ticker->attach( 100, this, &FilamentDetector::button_tick);
     }
 
+  
+
+    //The way the encoder pin works depends on the type of detection used
+    detection_type= THEKERNEL->config->value(filament_detector_checksum, detection_type_checksum)->by_default(2)->as_number();
+
     //Valid configurations contain an encoder pin, a bulge pin or both.
     //free the module if not a valid configuration
-    if(this->encoder_pin == nullptr && !bulge_pin.connected()) {
-        delete this;
-        return;
+    switch( detection_type ) {
+        case 1 :
+            if(this->encoder_pin == nullptr && !bulge_pin.connected()) {
+                delete this;
+                return;
+            }
+            break;
+        case 2 :
+            if (this->encoder_pin == nullptr) {
+                delete this;
+                return;
+            }
+            break;
+        default :
+           delete this;
+           return;
     }
 
     //only monitor the encoder if we are using the encodeer.
-    if (this->encoder_pin != nullptr) {
+    if (this->encoder_pin != nullptr && detection_type == 1) {
         // set interrupt on rising edge
         this->encoder_pin->rise(this, &FilamentDetector::on_pin_rise);
         NVIC_SetPriority(EINT3_IRQn, 16); // set to low priority
@@ -111,6 +131,7 @@ void FilamentDetector::send_command(std::string msg, StreamOutput *stream)
 // needed to detect when we resume
 void FilamentDetector::on_console_line_received( void *argument )
 {
+   THEKERNEL->streams->printf("patate");
     if(!suspended) return;
 
     SerialMessage new_message = *static_cast<SerialMessage *>(argument);
@@ -133,6 +154,8 @@ float FilamentDetector::get_emove()
 void FilamentDetector::on_gcode_received(void *argument)
 {
     Gcode *gcode = static_cast<Gcode *>(argument);
+    THEKERNEL->streams->printf("patate");
+
     if (gcode->has_m) {
         if (gcode->m == 404) { // set filament detector parameters S seconds per check, P pulses per mm
             if(gcode->has_letter('S')){
@@ -169,6 +192,7 @@ void FilamentDetector::on_gcode_received(void *argument)
 
 void FilamentDetector::on_main_loop(void *argument)
 {
+   THEKERNEL->streams->printf("patate");
     if (active && this->filament_out_alarm) {
         this->filament_out_alarm = false;
         if(bulge_detected){
@@ -188,9 +212,16 @@ void FilamentDetector::on_main_loop(void *argument)
 
 void FilamentDetector::on_second_tick(void *argument)
 {
-    if(++seconds_passed >= seconds_per_check) {
-        seconds_passed= 0;
-        check_encoder();
+   THEKERNEL->streams->printf("patate");
+    if (detection_type == 1) {
+        if(++seconds_passed >= seconds_per_check) {
+            seconds_passed= 0;
+            check_encoder();
+        }
+    }
+    else {
+        if (this->encoder_pin->read() == 0)
+            this->filament_out_alarm = true;
     }
 }
 
