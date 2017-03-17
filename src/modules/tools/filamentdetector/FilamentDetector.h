@@ -34,6 +34,7 @@ private:
 
     mbed::InterruptIn *encoder_pin{0};
     Pin bulge_pin;
+    Pin optical_pin;
     float e_last_moved{0};
     std::atomic_uint pulses{0};
     float pulses_per_mm{0};
